@@ -1,20 +1,33 @@
 //add animation-delay in css stylesheet - manually
-var gridModule = {
+const gridModule = {
   gridContainer: null,
   grid_elements: [],
   children: null,
+  activeEl: null,
   a: null,
   b: null,
   flag: false,
-  init: function (element, child_content = null) {
-
+  minimize: false,
+  heightVal: 4,
+  widthVal: 2,
+  mobileQ: 8,
+  init: function (element = null, child_content = null) {
 
 
     //Get Main Container and content
     this.gridContainer = document.querySelector(element);
 
+    if (!this.gridContainer){
+      console.log('No Container!!');
+      return 1;
+    }
+
     if (child_content) {
       this.children = document.querySelectorAll(child_content);
+      if (this.children.length > this.heightVal * this.widthVal) {
+        console.log('Too many Children!!');
+        return 1;
+      }
     }
 
     // basic grid settings of Main Container
@@ -24,27 +37,25 @@ var gridModule = {
     // important if you change maxValue - a - b
     // change this one if you change maxValue to adjust size correctly
     // a*b should add up to maxValue
-    // change gridTemplateColumns too
-    if(window.innerWidth < 600){
+    // change gridTemplateColumns too if you want
+    if (window.innerWidth < 600) {
       this.gridContainer.style.gridTemplateColumns = "1fr";
       this.a = this.gridContainer.clientHeight / 8;
-      this.b = this.gridContainer.clientWidth ;
-    }else{
+      this.b = this.gridContainer.clientWidth;
+    } else {
       this.gridContainer.style.gridTemplateColumns = "1fr 1fr";
-      this.a = this.gridContainer.clientHeight / 4;
-      this.b = this.gridContainer.clientWidth / 2;
+      this.a = this.gridContainer.clientHeight / this.heightVal;
+      this.b = this.gridContainer.clientWidth / this.widthVal;
     }
 
     this.gridContainer.style.gridGap = "5px";
 
     // create the element on current settings
     this.createEl();
-    // initialize every element with functionality and content
+    // initialize every element (and children) with functionality and content
     this.initEl();
-
-    window.onresize = function () {
-      location.reload();
-    }
+    // Responsive on resize
+    this.respListener();
   },
   createEl: function () {
     var curr = 0, check;
@@ -54,18 +65,14 @@ var gridModule = {
       var el = this.newElement("div", {
         class: "grid_el",
         transition: "all .33s ease",
-        height: this.a + "px",
-        width: this.b + "px",
-        transform: "scale(0)",
-        "animation-name": "anima",
-        "animation-duration": "1s",
-        "animation-fill-mode": "forwards",
+        "height": (this.a - 5) + "px",
+        width: (this.b - 5) + "px",
         "justify-self": "center",
         "align-self": "center",
         display: "flex",
         "justify-content": "center",
         "align-items": "center",
-        "font-size": "30px"
+        "font-size": "1.5rem"
       });
 
       // add content of children to grid_el - change maxValue here too if you change it above!
@@ -76,52 +83,59 @@ var gridModule = {
         }
       }
 
+      //add Listener
+      this.addElListener(el);
+
       // add grid_el to grid_container
       this.gridContainer.appendChild(el);
       this.grid_elements.push(el);
     }
   },
   initEl: function () {
+    var timeout;
+    var timeout_child;
     this.grid_elements.forEach((element, index) => {
-      var timeout;
-      var timeout_child;
       element.addEventListener("click", () => {
         if (this.flag) {
-          // fadeToggle content of children
-          clearTimeout(timeout_child);
-          if (this.children){
-            timeout_child = this.toggleChildren(true, element);
+          // double-click to minimize
+          if (this.minimize) {
+            // fadeToggle content of children
+            if (this.children) {
+              clearTimeout(timeout_child);
+              timeout_child = this.toggleChildren(true, element);
+            }
+            //reset grid_el
+            timeout = this.toggleEl(true, element);
+
+            this.minimize = false;
+            this.flag = false;
+          } else {
+            this.minimize = true;
           }
-          //reset grid_el
-          element.style.height = this.a + "px";
-          element.style.width = this.b + "px";
-
-          timeout = setTimeout(() => {
-            element.style.position = "inherit";
-            element.style.zIndex = "0";
-          }, 500);
-
-          this.flag = false;
         } else {
+
+          // set active-state
+          this.activeEl = element;
+
+          //notify for double-click
+          if (notifyModule) notifyModule.message('Click double to minimize.');
 
           //prevent visual bug
           clearTimeout(timeout);
-          clearTimeout(timeout_child);
 
           // maximize grid_el
-          element.style.zIndex = "1";
-          element.style.position = "absolute";
-          element.style.height = (this.gridContainer.clientHeight + (4 * 5)) + "px";
-          element.style.width = (this.gridContainer.clientWidth + 5) + "px";
+          timeout = this.toggleEl(false, element);
 
           // fadeToggle content of children
-          timeout_child = this.toggleChildren(false, element);
+          if (this.children) {
+            clearTimeout(timeout_child);
+            timeout_child = this.toggleChildren(false, element);
+          }
 
           this.flag = true;
         }
       });
-    })
-
+    });
   },
   newElement: function (type, attrs = {}) {
     const el = document.createElement(type);
@@ -152,11 +166,10 @@ var gridModule = {
     if (flag) {
       // hide hidden content of children
       if (element.hasChildNodes()) {
-        element.childNodes[0].style.overflowY = "hidden";
         element.childNodes[0].childNodes[0].style.transform = "scale(1.1)";
-        element.childNodes[0].childNodes[0].style.paddingTop = "0";
         element.childNodes[0].childNodes[1].style.opacity = "0";
         element.childNodes[0].childNodes[0].style.opacity = "0";
+        element.childNodes[0].style.overflowY = "hidden";
         let timeout = setTimeout(() => {
           element.childNodes[0].childNodes[1].style.display = "none";
           element.childNodes[0].childNodes[0].style.opacity = "1";
@@ -169,21 +182,98 @@ var gridModule = {
       if (element.hasChildNodes()) {
         element.childNodes[0].style.width = "100%";
         element.childNodes[0].style.height = "100%";
-        element.childNodes[0].childNodes[0].style.paddingTop = "30px";
-        element.childNodes[0].childNodes[0].style.transform = "scale(1.25)";
         element.childNodes[0].childNodes[1].style.display = "block";
         let timeout = setTimeout(() => {
           element.childNodes[0].childNodes[1].style.opacity = "1";
           element.childNodes[0].style.overflowY = "scroll";
         }, 330);
+
+        // display top-title on mobile better
+        if(window.innerWidth < 500)  element.childNodes[0].childNodes[0].style.transform = "translateY(" + -60 + "px)";
+
         return timeout;
       }
     }
+  },
+  toggleEl: function (flag, element) {
+
+    let timeout;
+
+    if (flag) {
+      element.style.height = this.a + "px";
+      element.style.width = this.b + "px";
+      element.style.cursor = "pointer";
+
+      this.gridContainer.style.pointerEvents = 'none';
+      timeout = setTimeout(() => {
+        element.style.position = "inherit";
+        element.style.zIndex = "0";
+        this.gridContainer.style.pointerEvents = 'inherit';
+      }, 500);
+    } else {
+      element.style.zIndex = "1";
+      element.style.position = "absolute";
+      element.style.cursor = "inherit";
+      // extra pixels for grid-gap added
+      element.style.height = (this.gridContainer.clientHeight + (6 * 5)) + "px";
+      element.style.width = (this.gridContainer.clientWidth + 10) + "px";
+    }
+    return timeout;
+  },
+  addElListener: function (el) {
+    if (window.innerWidth > 600) {
+      el.addEventListener('mouseover', () => {
+        if (this.flag) {
+          el.style.background = '#393939';
+          el.style.border = 'none';
+        } else {
+          el.style.background = 'transparent';
+          el.style.border = 'solid 1px white';
+        }
+      });
+      el.addEventListener('mouseleave', () => {
+        el.style.background = '#393939';
+        el.style.border = 'none';
+      });
+    }
+  },
+  respListener: function () {
+    // Responsive on resize
+    window.addEventListener('resize', () => {
+        // Calculate new a and b
+        // prevent bug on fast resize
+        setTimeout(() => {
+          if (window.innerWidth < 600) {
+            this.gridContainer.style.gridTemplateColumns = "1fr";
+            this.a = this.gridContainer.clientHeight / this.mobileQ;
+            this.b = this.gridContainer.clientWidth;
+          } else {
+
+            this.gridContainer.style.gridTemplateColumns = "1fr 1fr";
+            this.a = this.gridContainer.clientHeight / this.heightVal;
+            this.b = this.gridContainer.clientWidth / this.widthVal;
+          }
+          // resize elements
+          this.grid_elements.forEach(el => {
+
+            el.style.height = (this.a - 5) + 'px';
+            el.style.width = (this.b - 5) + 'px';
+          });
+        }, 500);
+
+        // responsive on active-state
+        if (this.flag) {
+          if (this.activeEl) {
+            if (this.children) this.toggleChildren(true, this.activeEl);
+            this.toggleEl(true, this.activeEl);
+          }
+          this.flag = false;
+          this.minimize = false;
+        }
+      }
+    );
   }
 }
-
-
-
 
 
 
