@@ -1,12 +1,10 @@
 const notifyModule = {
-  message: function (message = null) {
+  message: function (message = null, width = '250px', height = '50px') {
     var el = this.newElement("div", {
       class: "message",
       transition: "all .5s ease",
-      "min-height": 40 + "px",
-      "max-height": 60 + "px",
-      "min-width": 200 + "px",
-      "max-width": 250 + "px",
+      "min-height": height,
+      "min-width": width,
       "font-size": "0.75rem",
       background: 'black',
       color: 'white',
